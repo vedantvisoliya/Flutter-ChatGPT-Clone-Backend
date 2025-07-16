@@ -4,11 +4,20 @@ from services.llm_service import LLMService
 from services.sort_source_service import SortSourceService
 from services.search_service import SearchService
 import asyncio
+from fastapi.middleware.cors import CORSMiddleware
 
 app = FastAPI()
 search_service = SearchService()
 sort_source_service = SortSourceService()
 llm_service = LLMService()
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["https://chatgptaiclone.netlify.app/"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 # chat websocket
 @app.websocket("/ws/chat")
