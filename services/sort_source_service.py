@@ -1,15 +1,22 @@
-from sentence_transformers import SentenceTransformer # type: ignore
-import numpy as np # type: ignore
+import google.generativeai as genai  # type: ignore
+import numpy as np  # type: ignore
+from config import Settings
+
+settings = Settings()
+genai.configure(api_key=settings.GEMINI_API_KEY)
+
+# Gemini's embedding model. Using the hosted embedding API keeps the
+# service lightweight (no torch / sentence-transformers), so it fits well
+# within Render's free 512MB instance.
+EMBEDDING_MODEL = "models/text-embedding-004"
+
 
 class SortSourceService:
-
-    def __init__(self):
-        self.embedding_model = SentenceTransformer("all-miniLM-L6-v2")
 
     # i am using COS SIMILARITY SEARCH
 
     # what is embedding or vectorisation?
-    # -> in this case we have query which is converted into 
+    # -> in this case we have query which is converted into
     # a high order or high dimension space matrix
 
     # in cos similarity search we check the angle between
@@ -17,12 +24,8 @@ class SortSourceService:
     # that the content we got from the web and check is the content
     # a valid result for the query.
 
-    # we take the tail of both vectors and compare theta
-    # if angle between the both vector is less that means
-    # the result can be valid for the query
-
     # in cos theta case lesser the theta greater the value
-    # that means if theta is 0 degree i.e value will be 1 which imples the 
+    # that means if theta is 0 degree i.e value will be 1 which implies the
     # vectors are overlapping and that will be the best result for the query
 
     # so we will be collecting data which has a value between
@@ -30,13 +33,17 @@ class SortSourceService:
 
     # cos theta = (vecQ . vecR)/(magQ . magR)
 
-    # to convert the query and result into a higher dimensional matrix     
-    # i am going to use the sentence transformer pre trained embedding model
-    # i am going to use the all-MiniLM-L6-vs model of dimension 384
+    def _embed(self, text: str, task_type: str) -> np.ndarray:
+        response = genai.embed_content(
+            model=EMBEDDING_MODEL,
+            content=text,
+            task_type=task_type,
+        )
+        return np.array(response["embedding"])
 
     def sort_service(self, query: str, search_results: list[dict]):
         relevant_docs = []
-        query_embedding = self.embedding_model.encode(query)
+        query_embedding = self._embed(query, task_type="retrieval_query")
 
         for result in search_results:
             if result is None:
@@ -44,9 +51,12 @@ class SortSourceService:
             if 'content' not in result or result['content'] is None:
                 continue  # Skip if content key is missing or None
 
-            result_embedding = self.embedding_model.encode(result["content"])
+            result_embedding = self._embed(result["content"], task_type="retrieval_document")
 
-            similarity = float(np.dot(query_embedding, result_embedding)/((np.linalg.norm(query_embedding)) * (np.linalg.norm(result_embedding))))
+            similarity = float(
+                np.dot(query_embedding, result_embedding)
+                / ((np.linalg.norm(query_embedding)) * (np.linalg.norm(result_embedding)))
+            )
 
             result["relevance_score"] = similarity
 
@@ -54,5 +64,5 @@ class SortSourceService:
             if (similarity > 0.3):
                 relevant_docs.append(result)
 
-        sorted(relevant_docs, key=lambda x: x["relevance_score"], reverse=True)
+        relevant_docs.sort(key=lambda x: x["relevance_score"], reverse=True)
         return relevant_docs
