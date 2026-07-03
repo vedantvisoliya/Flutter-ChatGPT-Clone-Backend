@@ -8,7 +8,7 @@ genai.configure(api_key=settings.GEMINI_API_KEY)
 # Gemini's embedding model. Using the hosted embedding API keeps the
 # service lightweight (no torch / sentence-transformers), so it fits well
 # within Render's free 512MB instance.
-EMBEDDING_MODEL = "models/text-embedding-004"
+EMBEDDING_MODEL = "models/gemini-embedding-001"
 
 
 class SortSourceService:

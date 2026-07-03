@@ -54,8 +54,17 @@ async def websocket_chat_endpoint(websocket: WebSocket):
             )
 
 
-    except:
-        print("Unexpected error occurred")
+    except Exception as e:
+        print(f"Unexpected error occurred: {e}")
+        try:
+            await websocket.send_json(
+                {
+                    "type": "error",
+                    "data": "Something went wrong while generating the response. Please try again.",
+                }
+            )
+        except Exception:
+            pass
     finally:
         await websocket.close()
 
